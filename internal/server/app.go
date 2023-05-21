@@ -13,7 +13,6 @@ import (
 	"github.com/aiviaio/go-binance/v2"
 
 	"test_aivia/internal/config"
-	async_map "test_aivia/pkg"
 )
 
 type App struct {
@@ -34,6 +33,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 func (a *App) Run() error {
 
 	var wg sync.WaitGroup
+	var mux sync.Mutex
 	ctx := context.Background()
 	client := binance.NewClient("", "")
 	info, err := client.NewExchangeInfoService().Do(ctx)
@@ -49,8 +49,8 @@ func (a *App) Run() error {
 		symbolsSlice = append(symbolsSlice, symbol.Symbol)
 	}
 
-	counters := async_map.NewCounters()
-	ch := make(chan async_map.Counters)
+	infoSymbols := make(map[string]string)
+	ch := make(chan map[string]string)
 	for _, symbol := range symbolsSlice {
 		wg.Add(1)
 		go func(symbol string) {
@@ -60,13 +60,15 @@ func (a *App) Run() error {
 				return
 			}
 			for _, listPrice := range listPrices {
-				counters.Store(listPrice.Symbol, listPrice.Price)
-				ch <- *counters
+				mux.Lock()
+				infoSymbols[listPrice.Symbol] = listPrice.Price
+				ch <- infoSymbols
+				mux.Unlock()
 			}
 		}(symbol)
 	}
 	for value := range ch {
-		for k, v := range value.LoadAll() {
+		for k, v := range value {
 			fmt.Println(k, v)
 		}
 	}
