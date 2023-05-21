@@ -1,0 +1,7 @@
+/.idea/.gitignore
+/.idea/vcs.xml
+/.idea/modules.xml
+/.env
+/vendor/
+/.idea/watcherTasks.xml
+/.idea/test_aivia.iml
