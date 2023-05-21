@@ -49,7 +49,6 @@ func (a *App) Run() error {
 		symbolsSlice = append(symbolsSlice, symbol.Symbol)
 	}
 
-	infoSymbols := make(map[string]string)
 	ch := make(chan map[string]string)
 	for _, symbol := range symbolsSlice {
 		wg.Add(1)
@@ -61,8 +60,7 @@ func (a *App) Run() error {
 			}
 			for _, listPrice := range listPrices {
 				mux.Lock()
-				infoSymbols[listPrice.Symbol] = listPrice.Price
-				ch <- infoSymbols
+				ch <- map[string]string{listPrice.Symbol: listPrice.Price}
 				mux.Unlock()
 			}
 		}(symbol)
@@ -74,6 +72,11 @@ func (a *App) Run() error {
 	}
 
 	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	go func() {
 		if err = a.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatal("Failed to listen and serve", err)
 		}
@@ -82,8 +85,6 @@ func (a *App) Run() error {
 	signal.Notify(quit, os.Interrupt)
 	<-quit
 	fmt.Println("Shutting service...")
-	close(ch)
-	wg.Wait()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	fmt.Println("Shutting down server...")
